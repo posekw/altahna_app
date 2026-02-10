@@ -10,6 +10,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+            ref: main
+
+      - name: Debug - Check Commit and File Content
+        run: |
+          echo "Current Commit Hash:"
+          git rev-parse HEAD
+          echo "Content of app_theme.dart around cardTheme:"
+          grep -C 5 "cardTheme" lib/theme/app_theme.dart || echo "grep failed"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
