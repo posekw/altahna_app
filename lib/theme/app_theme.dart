@@ -44,7 +44,7 @@ class AppTheme {
         thumbColor: primaryCoffee,
         overlayColor: primaryCoffee.withOpacity(0.1),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: surface,
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.1),
@@ -97,7 +97,7 @@ class AppTheme {
         thumbColor: accent,
         overlayColor: accent.withOpacity(0.1),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFF2C2C2C),
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.3),
