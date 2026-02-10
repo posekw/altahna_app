@@ -73,8 +73,30 @@ jobs:
           find build -name "*.ipa"
           ls -R build/ios
 
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-ipa
-          path: build/ios/ipa/*.ipa
+      - name: Upload to App Store Connect
+        if: success()
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          # Create private key file
+          mkdir -p $RUNNER_TEMP/private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > $RUNNER_TEMP/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          
+          # Find IPA file
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+          
+          if [ -z "$IPA_PATH" ]; then
+            echo "No IPA file found to upload."
+            exit 1
+          fi
+          
+          echo "Uploading $IPA_PATH..."
+          
+          # Upload using altool
+          xcrun altool --upload-app --type ios --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --verbose
+
