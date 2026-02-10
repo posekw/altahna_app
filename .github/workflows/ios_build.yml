@@ -34,9 +34,9 @@ jobs:
 
           # Re-package the P12 to ensure compatibility
           # Extract key and cert (assuming no password on key/cert inside P12 or using input password)
-          openssl pkcs12 -in $CERTIFICATE_PATH.orig -out $RUNNER_TEMP/temp.pem -nodes -passin pass:"$P12_PASSWORD" -legacy
+          openssl pkcs12 -in $CERTIFICATE_PATH.orig -out $RUNNER_TEMP/temp.pem -nodes -passin pass:"$P12_PASSWORD"
           # Create new P12 with simple legacy settings
-          openssl pkcs12 -export -in $RUNNER_TEMP/temp.pem -out $CERTIFICATE_PATH -passout pass:"$P12_PASSWORD" -legacy
+          openssl pkcs12 -export -in $RUNNER_TEMP/temp.pem -out $CERTIFICATE_PATH -passout pass:"$P12_PASSWORD"
 
           # create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
