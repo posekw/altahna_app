@@ -29,8 +29,14 @@ jobs:
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate and provisioning profile from secrets
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH.orig
           echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+          # Re-package the P12 to ensure compatibility
+          # Extract key and cert (assuming no password on key/cert inside P12 or using input password)
+          openssl pkcs12 -in $CERTIFICATE_PATH.orig -out $RUNNER_TEMP/temp.pem -nodes -passin pass:"$P12_PASSWORD" -legacy
+          # Create new P12 with simple legacy settings
+          openssl pkcs12 -export -in $RUNNER_TEMP/temp.pem -out $CERTIFICATE_PATH -passout pass:"$P12_PASSWORD" -legacy
 
           # create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
