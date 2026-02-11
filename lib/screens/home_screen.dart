@@ -93,6 +93,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'language': 'Language',
       'theme': 'Theme',
       'total': 'Total',
+      'pressure': 'Pressure',
+      'flow': 'Flow',
+      'bars': 'Bars',
     },
     'ar': {
       'app_title': 'حاسبة القهوة ☕',
@@ -156,6 +159,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'language': 'الغة (Language)',
       'theme': 'المظهر (Theme)',
       'total': 'الإجمالي',
+      'pressure': 'الضغط',
+      'flow': 'التدفق',
+      'bars': 'بار',
     },
   };
 
@@ -293,9 +299,10 @@ class _HomeScreenState extends State<HomeScreen> {
                ListTile(
                  leading: const Icon(Icons.local_offer),
                  title: Text(tr('offers')),
-                 onTap: () {
+                 onTap: () async {
                    Navigator.pop(context);
-                   _showOffersDialog(context);
+                   await Future.delayed(const Duration(milliseconds: 200));
+                   if (context.mounted) _showOffersDialog(context);
                  },
                ),
                const Divider(),
@@ -330,25 +337,28 @@ class _HomeScreenState extends State<HomeScreen> {
                  leading: const Icon(Icons.language),
                  title: Text(tr('language')),
                  trailing: Text(_isArabic ? 'عربي' : 'English', style: const TextStyle(fontWeight: FontWeight.bold)),
-                 onTap: () {
-                    setState(() => _isArabic = !_isArabic);
+                 onTap: () async {
                     Navigator.pop(context);
+                    await Future.delayed(const Duration(milliseconds: 250));
+                    setState(() => _isArabic = !_isArabic);
                  },
                ),
                ListTile(
                  leading: Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
                  title: Text(tr('theme')),
-                 onTap: () {
-                   widget.onThemeToggle();
+                 onTap: () async {
                    Navigator.pop(context);
+                   await Future.delayed(const Duration(milliseconds: 200));
+                   widget.onThemeToggle();
                  },
                ),
                ListTile(
                  leading: const Icon(Icons.info_outline),
                  title: Text(tr('about')),
-                 onTap: () {
+                 onTap: () async {
                    Navigator.pop(context);
-                   _showInfoDialog(context);
+                   await Future.delayed(const Duration(milliseconds: 200));
+                   if (context.mounted) _showInfoDialog(context);
                  },
                ),
                const Spacer(), // Pushes Privacy Policy to bottom
@@ -652,6 +662,17 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(child: _buildRecipeDetail(tr('grind'), '${tr(recipe.grindSize)}\n(~${recipe.microns} µm)', textColor, labelColor)),
             ],
           ),
+          
+          if (recipe.pressure != null) ...[
+             const SizedBox(height: 16),
+             Row(
+               children: [
+                 Expanded(child: _buildRecipeDetail(tr('pressure'), '${recipe.pressure} ${tr('bars')}', textColor, labelColor)),
+                 Expanded(child: _buildRecipeDetail(tr('flow'), tr(recipe.flow!), textColor, labelColor)),
+               ],
+             ),
+          ],
+
           const SizedBox(height: 24),
 
           

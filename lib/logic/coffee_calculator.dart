@@ -17,6 +17,8 @@ class CoffeeRecipe {
   final String time;
   final String note;
   final List<PourStep> pourSteps;
+  final double? pressure;
+  final String? flow;
 
   CoffeeRecipe({
     required this.coffeeAmount,
@@ -28,6 +30,8 @@ class CoffeeRecipe {
     required this.time,
     required this.note,
     this.pourSteps = const [],
+    this.pressure,
+    this.flow,
   });
   
   double get totalLiquid => waterAmount + iceAmount;
@@ -194,6 +198,20 @@ class CoffeeCalculator {
       }
     }
 
+    // --- Pressure & Flow (Espresso Only) ---
+    double? pressure;
+    String? flow;
+
+    if (method == BrewMethod.espresso) {
+      if (roast == RoastLevel.light) {
+        pressure = 6.0; // Turbo Shot / Modern Espresso
+        flow = "Fast (~2.5 ml/s)";
+      } else {
+        pressure = 9.0; // Standard
+        flow = "Standard (~1.5 ml/s)"; //~25-30s for 36-40g
+      }
+    }
+
     return CoffeeRecipe(
       coffeeAmount: coffeeGrams,
       waterAmount: double.parse(hotWater.toStringAsFixed(0)),
@@ -204,6 +222,8 @@ class CoffeeCalculator {
       time: timeStr,
       note: _getAdvice(taste, method),
       pourSteps: pours,
+      pressure: pressure,
+      flow: flow,
     );
   }
 
