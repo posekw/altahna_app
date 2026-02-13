@@ -49,8 +49,13 @@ class CoffeeCalculator {
     required RoastLevel roast,
     required BrewMethod method,
     required BrewStyle style,
-    required TasteProfile taste,
-    int pourCount = 2, // Default to 2 pours (Bloom + Main)
+    required    TasteProfile taste,
+    int pourCount = 2,
+    double? customPressure,
+    double? customFlow,
+    double? expertRatio,
+    double? expertTemp,
+    int? expertMicrons,
   }) {
     // 1. Ratio & Microns Defaults
     double ratio = 15.0;
@@ -116,26 +121,28 @@ class CoffeeCalculator {
       temp = 92;
     }
 
-    // --- Adjustments based on Taste ---
+    // --- Adjustments based on Taste (Goal-Based) ---
     switch (taste) {
       case TasteProfile.verySour:
-        microns -= 100;
-        temp += 3;
-        ratio += (method == BrewMethod.espresso) ? 0.5 : 1.0;
+        // Goal: More Acidity/Sourness -> Coarser + Cooler
+        microns += 100;
+        temp -= 2;
+        ratio -= (method == BrewMethod.espresso) ? 0.2 : 0.5; // Slightly shorter ratio for acidity
         break;
       case TasteProfile.sour:
-        microns -= 50;
-        temp += 2;
+        microns += 50;
+        temp -= 1;
         break;
       case TasteProfile.balanced: break;
       case TasteProfile.bitter:
-        microns += 50;
-        temp -= 2;
+        microns -= 50;
+        temp += 1;
         break;
       case TasteProfile.veryBitter:
-        microns += 100;
-        temp -= 4;
-        ratio -= (method == BrewMethod.espresso) ? 0.5 : 1.0;
+        // Goal: More Bitterness/Intensity -> Finer + Hotter
+        microns -= 100;
+        temp += 2;
+        ratio += (method == BrewMethod.espresso) ? 0.5 : 1.0; // Longer ratio for intensity
         break;
     }
 
@@ -198,18 +205,46 @@ class CoffeeCalculator {
       }
     }
 
-    // --- Pressure & Flow (Espresso Only) ---
+    // --- Pressure & Flow (Espresso Resulting Targets) ---
     double? pressure;
     String? flow;
 
     if (method == BrewMethod.espresso) {
-      if (roast == RoastLevel.light) {
-        pressure = 6.0; // Turbo Shot / Modern Espresso
-        flow = "Fast (~2.5 ml/s)";
+      if (taste == TasteProfile.veryBitter || taste == TasteProfile.bitter) {
+        pressure = 9.0;
+        flow = "Standard (1.2 - 1.8 ml/s)";
+      } else if (taste == TasteProfile.verySour || taste == TasteProfile.sour) {
+        pressure = 6.0; // Modern Turbo/Allonge style
+        flow = "Fast (2.5 - 3.5 ml/s)";
       } else {
-        pressure = 9.0; // Standard
-        flow = "Standard (~1.5 ml/s)"; //~25-30s for 36-40g
+        pressure = 8.5;
+        flow = "Balanced (1.5 - 2.0 ml/s)";
       }
+    }
+
+    // --- Expert Overrides ---
+    if (expertRatio != null) ratio = expertRatio;
+    if (expertTemp != null) temp = expertTemp.round();
+    if (expertMicrons != null) {
+       microns = expertMicrons;
+       // Find best grindKey for display
+       if (microns < 350) grindKey = "grind_fine_table_salt";
+       else if (microns < 550) grindKey = "grind_medium_fine";
+       else if (microns < 750) grindKey = "grind_medium_sand";
+       else if (microns < 950) grindKey = "grind_medium_coarse";
+       else grindKey = "grind_coarse_sea_salt";
+    }
+
+    // Recalculate based on overrides if necessary
+    if (expertRatio != null || expertMicrons != null) {
+       totalLiquid = coffeeGrams * ratio;
+       if (style == BrewStyle.iced) {
+          ice = totalLiquid * 0.4;
+          hotWater = totalLiquid - ice;
+       } else {
+          ice = 0;
+          hotWater = totalLiquid;
+       }
     }
 
     return CoffeeRecipe(

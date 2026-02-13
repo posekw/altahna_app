@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:ui' as ui;
+import 'dart:io';
+import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../logic/coffee_calculator.dart';
 import '../theme/app_theme.dart';
 
@@ -14,19 +20,42 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey _boundaryKey = GlobalKey();
+  
   // State Variables
   BrewMethod _selectedMethod = BrewMethod.v60;
   BrewStyle _selectedStyle = BrewStyle.hot;
   RoastLevel _selectedRoast = RoastLevel.medium;
   double _coffeeDose = 20.0;
-  
-  // Taste Value: 0..4
-  // 0: Very Sour, 1: Sour, 2: Balanced, 3: Bitter, 4: Very Bitter
-  double _tasteValue = 2.0; 
-  int _pourCount = 2; // Default Standard V60 
+  double _tasteValue = 2.0;
+  int _pourCount = 2;
+
+  // Expert Mode
+  bool _isExpertMode = false;
+  double _expertRatio = 15.0;
+  double _expertTemp = 93.0;
+  int _expertMicrons = 800;
 
   // Language State
   bool _isArabic = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isArabic = prefs.getBool('is_arabic') ?? false;
+    });
+  }
+
+  Future<void> _saveLanguage(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_arabic', val);
+  }
 
   // Localization Map
   final Map<String, Map<String, String>> _localizedValues = {
@@ -47,12 +76,15 @@ class _HomeScreenState extends State<HomeScreen> {
       'dark': 'Dark\n(Bold)',
       'dose': 'Coffee Dose',
       'target_profile': 'Target Profile',
-      'very_sour': 'Very Sour',
-      'sour': 'Sour',
+      'very_sour': 'Acidic & Bright',
+      'sour': 'Mild Acidity',
       'balanced': 'Balanced',
-      'bitter': 'Bitter',
-      'very_bitter': 'Very Bitter',
-      'your_recipe': 'Your Recipe',
+      'bitter': 'Bold & Bitter',
+      'very_bitter': 'Intense & Bitter',
+      'expert_mode': 'Expert Mode',
+      'expert_mode_desc': 'Manual control of all parameters',
+      'acidity': 'Acidity',
+      'bitterness': 'Bitterness',
       'your_recipe': 'Your Recipe',
       'total_liquid': 'Total Water',
       'ice_amount': 'Ice Amount',
@@ -61,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'temp': 'Temp',
       'grind': 'Grind',
       'about': 'About',
-      'about_content': 'Calculations based on standard SCAA guidelines.\nSour? Increase temp/ratio.\nBitter? Decrease temp/ratio.',
+      'about_content': 'Calculations based on standard SCAA guidelines.',
       'fine': 'Fine (Low)',
       'coarse': 'Coarse (High)',
       'grind_medium_sand': 'Medium (Like V60 / Sand)',
@@ -73,11 +105,11 @@ class _HomeScreenState extends State<HomeScreen> {
       'grind_very_coarse_rock': 'Very Coarse (Like Cold Brew / Rock Salt)',
       'advice_good_shot': 'Good shot!',
       'advice_adjust_grind': 'Adjust grind size slightly.',
-      'advice_very_sour': 'Ideally for Very Sour coffee: Grind FINER, Increase Temp significantly.',
-      'advice_sour': 'For Sour coffee: Increase ratio slightly or grind a bit finer.',
-      'advice_balanced': 'Perfect balanced settings.',
-      'advice_bitter': 'For Bitter coffee: Coarsen grind or lower temp slightly.',
-      'advice_very_bitter': 'For Very Bitter coffee: Grind much COARSER and lower temp.',
+      'advice_very_sour': 'Goal: Acidic. We increased grind size and lowered temp.',
+      'advice_sour': 'Goal: Bright. We slightly coarsened the grind.',
+      'advice_balanced': 'Goal: Balanced. Using standard optimal settings.',
+      'advice_bitter': 'Goal: Bold. We slightly fined the grind.',
+      'advice_very_bitter': 'Goal: Intense. We set a finer grind and higher temp.',
       'pulse_count': 'Number of Pours',
       'pour': 'Pour',
       'bloom': 'Bloom',
@@ -114,11 +146,15 @@ class _HomeScreenState extends State<HomeScreen> {
       'dark': 'غامقة\n(قوية)',
       'dose': 'كمية البن',
       'target_profile': 'الطعم المطلوب',
-      'very_sour': 'حامضة جداً',
-      'sour': 'حامضة',
+      'very_sour': 'حمضية عالية',
+      'sour': 'حمضية خفيفة',
       'balanced': 'موزونة',
-      'bitter': 'مرة',
-      'very_bitter': 'مرة جداً',
+      'bitter': 'مرة / قوية',
+      'very_bitter': 'مرة / مكثفة',
+      'expert_mode': 'الوضع الاحترافي',
+      'expert_mode_desc': 'تحكم يدوي كامل في كل شيء',
+      'acidity': 'الحمضية',
+      'bitterness': 'المرارة',
       'your_recipe': 'وصفـتك',
       'total_liquid': 'إجمالي الماء',
       'ice_amount': 'كمية الثلج',
@@ -127,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'temp': 'الحرارة',
       'grind': 'الطحنة',
       'about': 'عن التطبيق',
-      'about_content': 'الحسابات مبنية على معايير القهوة المختصة.\nإذا كانت حامضة: ارفع الحرارة ونعم الطحنة.\nإذا كانت مرة: قلل الحرارة وحشن الطحنة.',
+      'about_content': 'الحسابات مبنية على معايير القهوة المختصة لتعطيك أفضل طعم ممكن.',
       'fine': 'ناعمة (واطي)',
       'coarse': 'خشنة (عالي)',
       'grind_medium_sand': 'وسط (مثل V60 / رمل)',
@@ -139,11 +175,11 @@ class _HomeScreenState extends State<HomeScreen> {
       'grind_very_coarse_rock': 'خشنة جداً (مثل كولد برو / ملح صخري)',
       'advice_good_shot': 'استخلاص ممتاز!',
       'advice_adjust_grind': 'عدل الطحنة قليلاً.',
-      'advice_very_sour': 'للقهوة الحامضة جداً: نعم الطحنة وارفع الحرارة كثيراً.',
-      'advice_sour': 'للقهوة الحامضة: زِد الريشيو قليلاً أو نعم الطحنة.',
-      'advice_balanced': 'إعدادات موزونة ومثالية.',
-      'advice_bitter': 'للقهوة المرة: خشن الطحنة أو قلل الحرارة قليلاً.',
-      'advice_very_bitter': 'للقهوة المرة جداً: خشن الطحنة كثيراً وقلل الحرارة.',
+      'advice_very_sour': 'الهدف حمضي: تم تخشين الطحنة وتقليل الحرارة.',
+      'advice_sour': 'الهدف حمضي خفيف: تم تخشين الطحنة قليلاً.',
+      'advice_balanced': 'الهدف متوازن: تم ضبط الإعدادات المثالية للمحصول.',
+      'advice_bitter': 'الهدف مر/قوي: تم تنعيم الطحنة قليلاً.',
+      'advice_very_bitter': 'الهدف مكثف/مر: تم تنعيم الطحنة ورفع الحرارة.',
       'pulse_count': 'عدد الصبات',
       'pour': 'صبة',
       'bloom': 'ترطيب',
@@ -193,6 +229,42 @@ class _HomeScreenState extends State<HomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not launch Instagram')),
         );
+      }
+    }
+  }
+
+  // --- Expert Logic Helpers ---
+  double get _acidityLevel {
+    // Acidity increases with coarser grind (higher microns) and lower temp
+    double grindFactor = (_expertMicrons - 200) / 1000; // 0 to 1
+    double tempFactor = (100 - _expertTemp) / 20; // 1 to 0
+    return (grindFactor * 0.5 + tempFactor * 0.5).clamp(0.0, 1.0);
+  }
+
+  double get _bitternessLevel {
+    // Bitterness increases with finer grind (lower microns) and higher temp
+    double grindFactor = (1200 - _expertMicrons) / 1000; // 1 to 0
+    double tempFactor = (_expertTemp - 80) / 20; // 0 to 1
+    return (grindFactor * 0.5 + tempFactor * 0.5).clamp(0.0, 1.0);
+  }
+
+  Future<void> _captureAndShareRecipe() async {
+    try {
+      RenderRepaintBoundary? boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+      final directory = await getTemporaryDirectory();
+      final imagePath = await File('${directory.path}/coffee_recipe.png').create();
+      await imagePath.writeAsBytes(pngBytes);
+
+      await Share.shareXFiles([XFile(imagePath.path)], text: 'My Coffee Recipe from Al-Tahna ☕');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sharing: $e')));
       }
     }
   }
@@ -266,17 +338,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  bool get _espressoMethod => _selectedMethod == BrewMethod.espresso;
+
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     // Calculate Recipe
-    final recipe = CoffeeCalculator.calculate(
-      coffeeGrams: _coffeeDose,
-      roast: _selectedRoast,
-      method: _selectedMethod,
-      style: _selectedStyle,
-      taste: _tasteProfile,
-      pourCount: _pourCount,
-    );
+    final recipe = _isExpertMode 
+      ? CoffeeCalculator.calculate(
+          coffeeGrams: _coffeeDose,
+          roast: _selectedRoast,
+          method: _selectedMethod,
+          style: _selectedStyle,
+          taste: TasteProfile.balanced, // Dummy
+          expertRatio: _expertRatio,
+          expertTemp: _expertTemp,
+          expertMicrons: _expertMicrons,
+        )
+      : CoffeeCalculator.calculate(
+          coffeeGrams: _coffeeDose,
+          roast: _selectedRoast,
+          method: _selectedMethod,
+          style: _selectedStyle,
+          taste: _tasteProfile,
+          pourCount: _pourCount,
+        );
 
     return Directionality(
       textDirection: _isArabic ? TextDirection.rtl : TextDirection.ltr,
@@ -289,7 +375,18 @@ class _HomeScreenState extends State<HomeScreen> {
           // User said "But currently will use [drawer] later... currently we will join my Instagram and WhatsApp".
           // It implies he wants them ACCESSIBLE now.
           // Let's keep the AppBar actions for quick access but ALSO add the drawer.
-          actions: [],
+          actions: [
+            IconButton(
+              icon: Icon(_isExpertMode ? Icons.psychology : Icons.psychology_outlined, 
+                    color: _isExpertMode ? AppTheme.accent : null),
+              tooltip: tr('expert_mode'),
+              onPressed: () => setState(() => _isExpertMode = !_isExpertMode),
+            ),
+            IconButton(
+               icon: const Icon(Icons.palette_outlined),
+               onPressed: widget.onThemeToggle,
+            ),
+          ],
         ),
         drawer: Drawer(
           child: SafeArea(
@@ -340,7 +437,9 @@ class _HomeScreenState extends State<HomeScreen> {
                  onTap: () async {
                     Navigator.pop(context);
                     await Future.delayed(const Duration(milliseconds: 250));
-                    setState(() => _isArabic = !_isArabic);
+                    final newVal = !_isArabic;
+                    setState(() => _isArabic = newVal);
+                    _saveLanguage(newVal);
                  },
                ),
                ListTile(
@@ -417,6 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 24),
               ],
 
+
               // 1.2 Pour Count (V60 Only)
               if (_selectedMethod == BrewMethod.v60) ...[
                  _buildSectionTitle('${tr('pulse_count')}: $_pourCount'),
@@ -430,6 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
                  ),
                  const SizedBox(height: 24),
               ],
+
 
               // 2. Roast Selection
               _buildSectionTitle(tr('roast_level')),
@@ -456,28 +557,60 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 4. Taste Preference (5 Levels)
-              _buildSectionTitle(tr('target_profile')),
-              Slider(
-                value: _tasteValue,
-                min: 0,
-                max: 4,
-                divisions: 4,
-                onChanged: (val) => setState(() => _tasteValue = val),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildTasteLabel(0, tr('very_sour')),
-                    _buildTasteLabel(1, tr('sour')),
-                    _buildTasteLabel(2, tr('balanced')),
-                    _buildTasteLabel(3, tr('bitter')),
-                    _buildTasteLabel(4, tr('very_bitter')),
-                  ],
+              // 4. Taste Preference or Expert Mode
+              if (!_isExpertMode) ...[
+                _buildSectionTitle(tr('target_profile')),
+                Slider(
+                  value: _tasteValue,
+                  min: 0,
+                  max: 4,
+                  divisions: 4,
+                  onChanged: (val) => setState(() => _tasteValue = val),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildTasteLabel(0, tr('very_sour')),
+                      _buildTasteLabel(1, tr('sour')),
+                      _buildTasteLabel(2, tr('balanced')),
+                      _buildTasteLabel(3, tr('bitter')),
+                      _buildTasteLabel(4, tr('very_bitter')),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Expert Mode Panel
+                _buildSectionTitle(tr('expert_mode')),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.black.withOpacity(0.05) : Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      // Acidity / Bitterness Predictors
+                      Row(
+                        children: [
+                          Expanded(child: _buildExpertIndicator(tr('acidity'), _acidityLevel, Colors.orange)),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildExpertIndicator(tr('bitterness'), _bitternessLevel, Colors.brown)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Ratio Slider
+                      _buildExpertSlider('Ratio', '1:${_expertRatio.toStringAsFixed(1)}', _expertRatio, 10, 25, (v) => setState(() => _expertRatio = v)),
+                      // Temp Slider
+                      _buildExpertSlider(tr('temp'), '${_expertTemp.round()}°C', _expertTemp, 75, 100, (v) => setState(() => _expertTemp = v)),
+                      // Grind Slider
+                      _buildExpertSlider(tr('grind'), '${_expertMicrons} µm', _expertMicrons.toDouble(), 150, 1400, (v) => setState(() => _expertMicrons = v.round())),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
 
               // 5. Result Card
@@ -515,6 +648,38 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Theme.of(context).primaryColor,
         ),
       ),
+    );
+  }
+
+  Widget _buildExpertIndicator(String label, double value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        LinearProgressIndicator(
+          value: value,
+          backgroundColor: color.withOpacity(0.1),
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+          minHeight: 8,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpertSlider(String label, String valueText, double value, double min, double max, ValueChanged<double> onChanged) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(valueText, style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        Slider(value: value, min: min, max: max, onChanged: onChanged),
+      ],
     );
   }
 
@@ -614,35 +779,46 @@ class _HomeScreenState extends State<HomeScreen> {
     // Darken the label color slightly for better visibility as requested
     final labelColor = isDarkMode ? Colors.black87 : Colors.white70; 
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                tr('your_recipe'),
-                style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: AppTheme.accent, borderRadius: BorderRadius.circular(20)),
-                child: Text(
-                  recipe.time,
-                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+    return RepaintBoundary(
+      key: _boundaryKey,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).primaryColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      tr('your_recipe'),
+                      style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                        icon: Icon(Icons.share, color: textColor.withOpacity(0.7), size: 20),
+                        onPressed: _captureAndShareRecipe,
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: AppTheme.accent, borderRadius: BorderRadius.circular(20)),
+                  child: Text(
+                    recipe.time,
+                    style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 24),
           
           _buildRecipeRow(FontAwesomeIcons.droplet, tr('total_liquid'), '${recipe.totalLiquid.round()} ml', textColor, labelColor),
@@ -736,7 +912,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

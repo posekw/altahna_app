@@ -3,24 +3,46 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 
-void main() {
-  runApp(const CoffeeCalculatorApp());
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final storedTheme = prefs.getString('theme_mode') ?? 'system';
+  
+  runApp(CoffeeCalculatorApp(initialTheme: storedTheme));
 }
 
 class CoffeeCalculatorApp extends StatefulWidget {
-  const CoffeeCalculatorApp({super.key});
+  final String initialTheme;
+  const CoffeeCalculatorApp({super.key, required this.initialTheme});
 
   @override
   State<CoffeeCalculatorApp> createState() => _CoffeeCalculatorAppState();
 }
 
 class _CoffeeCalculatorAppState extends State<CoffeeCalculatorApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  late ThemeMode _themeMode;
 
-  void _toggleTheme() {
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = _parseTheme(widget.initialTheme);
+  }
+
+  ThemeMode _parseTheme(String theme) {
+    if (theme == 'dark') return ThemeMode.dark;
+    if (theme == 'light') return ThemeMode.light;
+    return ThemeMode.system;
+  }
+
+  void _toggleTheme() async {
+    final nextMode = _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
     setState(() {
-      _themeMode = _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+      _themeMode = nextMode;
     });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_mode', nextMode == ThemeMode.dark ? 'dark' : 'light');
   }
 
   @override
