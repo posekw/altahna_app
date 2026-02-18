@@ -43,6 +43,71 @@ enum BrewMethod { v60, aeropress, frenchPress, espresso, coldBrew }
 enum BrewStyle { hot, iced }
 enum TasteProfile { verySour, sour, balanced, bitter, veryBitter }
 
+class CustomRecipeData {
+  final String id;
+  final String name;
+  final String method;
+  final double coffeeAmount;
+  final double waterAmount;
+  final double iceAmount;
+  final int temperature;
+  final int microns;
+  final String brewTime;
+  final String notes;
+  final DateTime createdAt;
+
+  CustomRecipeData({
+    required this.id,
+    required this.name,
+    required this.method,
+    required this.coffeeAmount,
+    required this.waterAmount,
+    this.iceAmount = 0,
+    required this.temperature,
+    required this.microns,
+    required this.brewTime,
+    this.notes = '',
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'method': method,
+    'coffeeAmount': coffeeAmount,
+    'waterAmount': waterAmount,
+    'iceAmount': iceAmount,
+    'temperature': temperature,
+    'microns': microns,
+    'brewTime': brewTime,
+    'notes': notes,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory CustomRecipeData.fromJson(Map<String, dynamic> json) => CustomRecipeData(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    method: json['method'] as String,
+    coffeeAmount: (json['coffeeAmount'] as num).toDouble(),
+    waterAmount: (json['waterAmount'] as num).toDouble(),
+    iceAmount: (json['iceAmount'] as num?)?.toDouble() ?? 0,
+    temperature: json['temperature'] as int,
+    microns: json['microns'] as int,
+    brewTime: json['brewTime'] as String,
+    notes: json['notes'] as String? ?? '',
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+
+  String get grindDescription {
+    if (microns < 350) return 'grind_fine_table_salt';
+    if (microns < 550) return 'grind_medium_fine';
+    if (microns < 750) return 'grind_medium_sand';
+    if (microns < 950) return 'grind_medium_coarse';
+    if (microns < 1300) return 'grind_coarse_sea_salt';
+    return 'grind_very_coarse_rock';
+  }
+}
+
 class CoffeeCalculator {
   static CoffeeRecipe calculate({
     required double coffeeGrams,

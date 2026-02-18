@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../logic/coffee_calculator.dart';
 import '../theme/app_theme.dart';
+import 'custom_recipe_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -128,6 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'pressure': 'Pressure',
       'flow': 'Flow',
       'bars': 'Bars',
+      'custom_recipe': 'Custom Recipe',
     },
     'ar': {
       'app_title': 'حاسبة القهوة ☕',
@@ -198,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'pressure': 'الضغط',
       'flow': 'التدفق',
       'bars': 'بار',
+      'custom_recipe': 'وصفة مخصصة',
     },
   };
 
@@ -393,6 +396,19 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
              children: [
                const SizedBox(height: 20), // Spacing instead of Header
+               ListTile(
+                 leading: const Icon(Icons.coffee_maker),
+                 title: Text(tr('custom_recipe')),
+                 onTap: () {
+                   Navigator.pop(context);
+                   Navigator.push(
+                     context,
+                     MaterialPageRoute(
+                       builder: (_) => CustomRecipeScreen(isArabic: _isArabic),
+                     ),
+                   );
+                 },
+               ),
                ListTile(
                  leading: const Icon(Icons.local_offer),
                  title: Text(tr('offers')),
